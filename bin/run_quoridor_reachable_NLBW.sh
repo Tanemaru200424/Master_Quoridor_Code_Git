@@ -3,7 +3,7 @@ set -e
 
 # コンパイル処理（N, L, B, W はすべて実行時引数のため、組合せが変わっても再コンパイル不要）
 echo "--- コンパイル開始 ---"
-g++ -g -O0 -std=c++11 main_quoridor_reachable_NLBW.cpp zdd_quoridor_board_only.cpp posi_quoridor_board_only.cpp -o quridor_reachable_NLBW_obj -pthread
+g++ -g -O0 -std=c++11 ../src/reachability/main_quoridor_reachable_NLBW.cpp ../src/common/zdd_quoridor_board_only.cpp ../src/common/posi_quoridor_board_only.cpp -o quridor_reachable_NLBW_obj -pthread
 
 if [ $? -ne 0 ]; then
     echo "--- コンパイル失敗 ---"

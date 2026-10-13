@@ -20,8 +20,8 @@
 #include <iomanip>
 #include <stdio.h>
 #include <climits>
-#include "zdd_quoridor_board_only.hpp"
-#include "posi_quoridor_board_only.hpp"
+#include "../common/zdd_quoridor_board_only.hpp"
+#include "../common/posi_quoridor_board_only.hpp"
 
 ZDD zdd;
 unsigned int table_entry_size = 2U;
