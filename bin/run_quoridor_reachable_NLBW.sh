@@ -1,21 +1,21 @@
 #!/bin/bash
 set -e
 
+N=3
+MAX_L=2   # = M。ルール上使えるフェンス総数。
+HALF=$((MAX_L / 2))  # 片方のプレイヤーが持てるフェンス数の上限 (M/2)
+
+EXECUTABLE="./quridor_reachable_NLBW_exe"
+
 # コンパイル処理（N, L, B, W はすべて実行時引数のため、組合せが変わっても再コンパイル不要）
 echo "--- コンパイル開始 ---"
-g++ -g -O0 -std=c++11 ../src/reachability/main_quoridor_reachable_NLBW.cpp ../src/common/zdd_quoridor_board_only.cpp ../src/common/posi_quoridor_board_only.cpp -o quridor_reachable_NLBW_obj -pthread
+g++ -g -O0 -std=c++11 ../src/reachability/main_quoridor_reachable_NLBW.cpp ../src/common/zdd_quoridor_board_only.cpp ../src/common/posi_quoridor_board_only.cpp -o "$EXECUTABLE" -pthread
 
 if [ $? -ne 0 ]; then
     echo "--- コンパイル失敗 ---"
     exit 1
 fi
 echo "--- コンパイル成功 ---"
-
-N=3
-MAX_L=2   # = M。ルール上使えるフェンス総数。
-HALF=$((MAX_L / 2))  # 片方のプレイヤーが持てるフェンス数の上限 (M/2)
-
-EXECUTABLE="./quridor_reachable_NLBW_obj"
 
 # =========================================================
 # 解析ファイルを初期化するか

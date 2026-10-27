@@ -1,0 +1,165 @@
+# Quoridor 実験統合 Makefile
+# 実行例:
+#   make                         # ビルド
+#   make run N=3 MAX_L=4 MAX_TOTAL=4 MAX_ITER=254
+#   make compare N=3 MAX_L=4 MAX_TOTAL=4
+#   make clean                   # .o と実行ファイルだけ削除
+#   make clean-work              # 実験用一時データを削除
+#
+# MAX_TOTAL は L+B+W の最大値。依存する L+1 側を先に生成するため、
+# 実験は MAX_TOTAL ごとに L の降順で実行する。
+# 比較対象は bin/ に置かれた quoridor_gamevalue_*.bin / quoridor_reachable_*.bin。
+
+SHELL := /bin/bash
+
+CXX       ?= g++
+CXXFLAGS  ?= -std=c++11 -O2 -pthread -Wall -Wextra
+N         ?= 3
+MAX_L     ?= 4
+MAX_TOTAL ?= 4
+MAX_ITER  ?= 254
+
+ROOT      := .
+SRC       := src
+COMMON    := $(SRC)/common
+RETRO_SRC := $(SRC)/retrograde-analysis/main_quoridor_retrograde_NLBW.cpp
+REACH_SRC := $(SRC)/reachability/main_quoridor_reachable_NLBW.cpp
+LOOKUP_SRC:= $(SRC)/lookup/main_quoridor_lookup_NLBW.cpp
+
+RETRO_OBJ := $(SRC)/retrograde-analysis/quoridor_retrograde.o
+REACH_OBJ := $(SRC)/reachability/quoridor_reachable.o
+LOOKUP_OBJ:= $(SRC)/lookup/quoridor_lookup.o
+
+ZDD_OBJ   := $(COMMON)/zdd_quoridor_board_only.o
+POSI_OBJ  := $(COMMON)/posi_quoridor_board_only.o
+
+RETRO_EXE := bin/quoridor_retrograde_exe
+REACH_EXE := bin/quoridor_reachable_exe
+LOOKUP_EXE:= bin/quoridor_lookup_exe
+
+RUN_ROOT  := build/experiment
+RETRO_RUN := $(RUN_ROOT)/retrograde
+REACH_RUN := $(RUN_ROOT)/reachability
+
+CPPFLAGS  += -I$(COMMON) -DQUORIDOR_BOARD_N=$(N)
+
+.PHONY: all build run compare clean clean-work check-vars FORCE
+all: build
+build: $(RETRO_EXE) $(REACH_EXE) $(LOOKUP_EXE)
+
+$(COMMON) $(SRC)/retrograde-analysis $(SRC)/reachability $(SRC)/lookup bin $(RUN_ROOT) $(RETRO_RUN) $(REACH_RUN):
+	mkdir -p $@
+
+# N はコンパイル時定数なので、Makefileから N を変えた場合も必ず再コンパイルする。
+$(ZDD_OBJ): $(COMMON)/zdd_quoridor_board_only.cpp $(COMMON)/zdd_quoridor_board_only.hpp FORCE | $(COMMON)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
+$(POSI_OBJ): $(COMMON)/posi_quoridor_board_only.cpp $(COMMON)/posi_quoridor_board_only.hpp $(COMMON)/zdd_quoridor_board_only.hpp FORCE | $(COMMON)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
+$(RETRO_OBJ): $(RETRO_SRC) $(COMMON)/zdd_quoridor_board_only.hpp $(COMMON)/posi_quoridor_board_only.hpp FORCE | $(SRC)/retrograde-analysis
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
+$(REACH_OBJ): $(REACH_SRC) $(COMMON)/zdd_quoridor_board_only.hpp $(COMMON)/posi_quoridor_board_only.hpp FORCE | $(SRC)/reachability
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
+$(LOOKUP_OBJ): $(LOOKUP_SRC) $(COMMON)/zdd_quoridor_board_only.hpp $(COMMON)/posi_quoridor_board_only.hpp FORCE | $(SRC)/lookup
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
+$(RETRO_EXE): $(RETRO_OBJ) $(ZDD_OBJ) $(POSI_OBJ) | bin
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(REACH_EXE): $(REACH_OBJ) $(ZDD_OBJ) $(POSI_OBJ) | bin
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(LOOKUP_EXE): $(LOOKUP_OBJ) $(ZDD_OBJ) $(POSI_OBJ) | bin
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+FORCE:
+
+check-vars:
+	@test "$(N)" -ge 2 || (echo "ERROR: N must be >= 2"; exit 1)
+	@test "$(MAX_L)" -ge 0 || (echo "ERROR: MAX_L must be >= 0"; exit 1)
+	@test "$(MAX_TOTAL)" -ge 0 || (echo "ERROR: MAX_TOTAL must be >= 0"; exit 1)
+	@test "$(MAX_L)" -le 255 -a "$(MAX_TOTAL)" -le 255 || (echo "ERROR: table header stores L as one byte (0..255)"; exit 1)
+
+# 全組合せ: M=L+B+W を固定し、L を大きい方から実行する。
+# L+1 側の依存表が先に生成される。作業領域は bin/ と分離し、参照データを壊さない。
+run: build check-vars | $(RETRO_RUN) $(REACH_RUN)
+	rm -f $(RETRO_RUN)/*.bin $(REACH_RUN)/*.bin
+	@set -eu; \
+	for M in $$(seq 0 $(MAX_TOTAL)); do \
+	  echo "========== Retrograde: total fences M=$$M =========="; \
+	  for ((L=M; L>=0; L--)); do \
+	    for ((B=0; B<=M-L; B++)); do \
+	      W=$$((M-L-B)); \
+      f1="quoridor_gamevalue_N$(N)L$${L}B$${B}W$${W}.bin"; \
+      f2="quoridor_gamevalue_N$(N)L$${L}B$${W}W$${B}.bin"; \
+      f3=NULL; f4=NULL; \
+      if (( B > 0 )); then f3="quoridor_gamevalue_N$(N)L$$((L+1))B$$(($$W))W$$(($$B-1)).bin"; fi; \
+      if (( W > 0 )); then f4="quoridor_gamevalue_N$(N)L$$((L+1))B$${B}W$$(($$W-1)).bin"; fi; \
+      for ((ITER=0; ITER<=$(MAX_ITER); ITER++)); do \
+        echo "[retrograde] N=$(N) L=$$L B=$$B W=$$W ITER=$$ITER"; \
+        (cd $(RETRO_RUN) && "$(abspath $(RETRO_EXE))" "$(N)" "$$L" "$$B" "$$W" "$$ITER" "$$f1" "$$f2" "$$f3" "$$f4"); \
+      done; \
+	    done; \
+	  done; \
+	done
+	@set -eu; \
+	for M in $$(seq 0 $(MAX_TOTAL)); do \
+	  echo "========== Reachability: total fences M=$$M =========="; \
+	  for ((L=M; L>=0; L--)); do \
+	    for ((B=0; B<=M-L; B++)); do \
+	      W=$$((M-L-B)); \
+	      f1="quoridor_reachable_N$(N)L$${L}B$${B}W$${W}.bin"; \
+	      f2=NULL; f3=NULL; \
+	      if (( B > 0 )); then f2="quoridor_reachable_N$(N)L$$((L+1))B$$((B-1))W$${W}.bin"; fi; \
+	      if (( W > 0 )); then f3="quoridor_reachable_N$(N)L$$((L+1))B$${B}W$$((W-1)).bin"; fi; \
+	      echo "[reachability] N=$(N) L=$$L B=$$B W=$$W"; \
+	      (cd $(REACH_RUN) && "$(abspath $(REACH_EXE))" "$(N)" "$$L" "$$B" "$$W" "$$f1" "$$f2" "$$f3"); \
+	    done; \
+	  done; \
+	done
+
+# 生成した表のうち L <= MAX_L のものを bin/ の基準データとバイト単位で比較。
+# 基準ファイルがない場合は成功扱いにせずエラーにする。
+compare:
+	@test -d bin || (echo "ERROR: bin/ directory not found"; exit 1)
+	@set -eu; count=0; \
+	for l in $$(seq 0 $(MAX_L)); do \
+	  for f in $(RETRO_RUN)/quoridor_gamevalue_N$(N)L$${l}B*W*.bin; do \
+	    test -f "$$f" || continue; \
+	    ref="bin/$$(basename "$$f")"; \
+	    if test ! -f "$$ref"; then echo "MISSING reference: $$ref"; exit 1; fi; \
+	    if ! cmp -s "$$f" "$$ref"; then echo "DIFFER: $$f <> $$ref"; exit 1; fi; \
+	    echo "OK: $$(basename "$$f")"; count=$$((count+1)); \
+	  done; \
+	  for f in $(REACH_RUN)/quoridor_reachable_N$(N)L$${l}B*W*.bin; do \
+	    test -f "$$f" || continue; \
+	    ref="bin/$$(basename "$$f")"; \
+	    if test ! -f "$$ref"; then echo "MISSING reference: $$ref"; exit 1; fi; \
+	    if ! cmp -s "$$f" "$$ref"; then echo "DIFFER: $$f <> $$ref"; exit 1; fi; \
+	    echo "OK: $$(basename "$$f")"; count=$$((count+1)); \
+	  done; \
+	done; \
+	test "$$count" -gt 0 || (echo "ERROR: no generated tables found; run 'make run' first"; exit 1); \
+	echo "Compared $$count binary tables successfully."
+
+# Build the tables first, then compare. Keeps the reference tables in bin/ untouched.
+verify:
+	$(MAKE) run N=$(N) MAX_L=$(MAX_L) MAX_TOTAL=$(MAX_TOTAL) MAX_ITER=$(MAX_ITER)
+	$(MAKE) compare N=$(N) MAX_L=$(MAX_L) MAX_TOTAL=$(MAX_TOTAL)
+
+# Lookup takes one quoted FEN string as argv[1], for example:
+# make lookup FEN='3 0 0/0 18/2 0000'
+lookup: $(LOOKUP_EXE)
+	@test -n "$(FEN)" || (echo "Usage: make lookup FEN='N L B/W Bpawn/Wpawn fence-string'"; exit 1)
+	./$(LOOKUP_EXE) "$(FEN)"
+
+# Removes only compiled objects and executables, not reference tables.
+clean:
+	rm -f $(RETRO_OBJ) $(REACH_OBJ) $(LOOKUP_OBJ) $(ZDD_OBJ) $(POSI_OBJ)
+	rm -f $(RETRO_EXE) $(REACH_EXE) $(LOOKUP_EXE)
+
+clean-work:
+	rm -rf $(RUN_ROOT)

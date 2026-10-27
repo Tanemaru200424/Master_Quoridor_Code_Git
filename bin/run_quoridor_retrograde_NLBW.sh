@@ -5,7 +5,7 @@ N=5
 MAX_L=6   # = M。ルール上使えるフェンス総数。
 HALF=$((MAX_L / 2))  # 片方のプレイヤーが持てるフェンス数の上限
 
-EXECUTABLE="./quridor_retrograde_NLBW_obj"
+EXECUTABLE="./quridor_retrograde_NLBW_exe"
 
 # =========================================================
 # 解析ファイルを初期化するか
@@ -93,23 +93,24 @@ run_iteration() {
             # =================================================
 
             # zdd_quoridor_board_only.hpp の N, L
+            # シェルスクリプト実行からZDDで使う盤面サイズを書き換える
             sed -i \
-                "s/static constexpr int N = [0-9]*;/static constexpr int N = ${N};/" \
-                zdd_quoridor_board_only.hpp
+                "s/static constexpr int N = [3-9]*;/static constexpr int N = ${N};/" \
+                ../src/common/zdd_quoridor_board_only.hpp
 
-            sed -i \
-                "s/static constexpr int L = [0-9]*;/static constexpr int L = ${L};/" \
-                zdd_quoridor_board_only.hpp
+            #sed -i \
+            #    "s/static constexpr int L = [0-9]*;/static constexpr int L = ${L};/" \
+            #    zdd_quoridor_board_only.hpp
 
 
             # main_quoridor_retrograde_NLBW.cpp の B, W
-            sed -i \
-                "s/static constexpr int B = [0-9]*;/static constexpr int B = ${B};/" \
-                main_quoridor_retrograde_NLBW.cpp
+            #sed -i \
+            #    "s/static constexpr int B = [0-9]*;/static constexpr int B = ${B};/" \
+            #    main_quoridor_retrograde_NLBW.cpp
 
-            sed -i \
-                "s/static constexpr int W = [0-9]*;/static constexpr int W = ${W};/" \
-                main_quoridor_retrograde_NLBW.cpp
+            #sed -i \
+            #    "s/static constexpr int W = [0-9]*;/static constexpr int W = ${W};/" \
+            #    main_quoridor_retrograde_NLBW.cpp
 
 
             # =================================================
@@ -118,10 +119,24 @@ run_iteration() {
 
             echo "--- コンパイル開始 (L=${L} B=${B} W=${W}) ---"
 
+            # コンパイル：オブジェクトファイルを作成
+            g++ -std=c++11 -pthread -c \
+                ../src/retrograde-analysis/main_quoridor_retrograde_NLBW.cpp \
+                -o ../src/retrograde-analysis/main_quoridor_retrograde_NLBW.o
+
+            g++ -std=c++11 -pthread -c \
+                ../src/common/zdd_quoridor_board_only.cpp \
+                -o ../src/common/zdd_quoridor_board_only.o
+
+            g++ -std=c++11 -pthread -c \
+                ../src/common/posi_quoridor_board_only.cpp \
+                -o ../src/common/posi_quoridor_board_only.o
+
+            # オブジェクトファイルから実行ファイルを作成
             g++ -std=c++11 \
-                main_quoridor_retrograde_NLBW.cpp \
-                zdd_quoridor_board_only.cpp \
-                posi_quoridor_board_only.cpp \
+                ../src/retrograde-analysis/main_quoridor_retrograde_NLBW.o \
+                ../src/common/zdd_quoridor_board_only.o \
+                ../src/common/posi_quoridor_board_only.o \
                 -o "$EXECUTABLE" \
                 -pthread
 

@@ -2,6 +2,7 @@
 #define INCLUDE_ZDD_BOARD_ONLY_H
 
 #include <array>
+#include <cstdint>
 #include <deque>
 #include <cassert>
 #include <algorithm>
@@ -32,7 +33,11 @@ using std::stringstream;
 //手持ち配置の割り振りなどの盤面外情報は使用者側が管理する必要あり。
 //NとLの盤面情報を持つ。LとL+1を開始点として持つ。
 
-static constexpr int N = 5; //盤面の1辺のマス数。
+#ifndef QUORIDOR_BOARD_N
+#define QUORIDOR_BOARD_N 5
+#endif
+
+static constexpr int N = QUORIDOR_BOARD_N; //盤面の1辺のマス数。MakeFileから変更可能。
 
 //zddの節点
 //手持ち情報は省く
