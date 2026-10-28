@@ -33,11 +33,11 @@ using std::stringstream;
 //手持ち配置の割り振りなどの盤面外情報は使用者側が管理する必要あり。
 //NとLの盤面情報を持つ。LとL+1を開始点として持つ。
 
-#ifndef QUORIDOR_BOARD_N
-#define QUORIDOR_BOARD_N 5
+#ifndef QUORIDOR_N
+#define QUORIDOR_N 5
 #endif
 
-static constexpr int N = QUORIDOR_BOARD_N; //盤面の1辺のマス数。MakeFileから変更可能。
+static constexpr int N = QUORIDOR_N; //盤面の1辺のマス数。MakeFileから変更可能。
 
 //zddの節点
 //手持ち情報は省く

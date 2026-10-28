@@ -309,7 +309,7 @@ int main(int argc, char *argv[]){
     int b_pawn_pos = stoi(b_pawn); // コマ盤面から見た位置
     int w_pawn_pos = stoi(w_pawn); // コマ盤面から見た位置
     hand_board_info[(b_pawn_pos/N)*(2*N-1) + (b_pawn_pos%N)] = 1; // コマ盤面の位置を全体盤面の位置に変更して配置情報に値を書く
-    hand_board_info[(w_pawn_pos/N)*(2*N-1) + (w_pawn_pos)] = 2; // コマ盤面の位置を全体盤面の位置に変更して配置情報に値を書く
+    hand_board_info[(w_pawn_pos/N)*(2*N-1) + (w_pawn_pos%N)] = 2; // コマ盤面の位置を全体盤面の位置に変更して配置情報に値を書く
 
     int board_fence_count = 0;
     for (size_t i = 0; i < board_fence_part.length(); ++i) {
