@@ -12,8 +12,8 @@
 #include <sstream>
 #include <cassert>
 #include <string>
-#include "zdd_quoridor_board_only.hpp"
-#include "posi_quoridor_board_only.hpp"
+#include "../common/zdd_quoridor_board_only.hpp"
+#include "../common/posi_quoridor_board_only.hpp"
 
 using namespace std;
 
