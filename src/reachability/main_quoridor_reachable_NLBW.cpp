@@ -939,7 +939,11 @@ static void boss(const string &read_file_name_LBW, const string &read_file_name_
             update_counter++;
         }
     }
-    cout << "File overwrite completed. Total " << update_counter << " elements updated." << endl;
+    cout << "new nblack  =  " << nblack << endl;
+    cout << "new nwhite  =  " << nwhite << endl;
+    cout << "new nboth  =  " << nboth << endl;
+    cout << "total updated = " << nblack + nwhite + nboth << endl; // 新しくラベルが付いた配置数。
+    cout << "leave nunknown  =  " << nunknown << endl; //残り不明配置数
 
     unique_lock<mutex> lck(mtx); //ロック
     flag_worker_quit = true; //仕事が終わったことを表すフラグ
@@ -1071,11 +1075,11 @@ int main(int argc, char *argv[]) {
         th_worker[workerid].join();
     }
 
-    cout << "new nblack  =  " << nblack << endl;
-    cout << "new nwhite  =  " << nwhite << endl;
-    cout << "new nboth  =  " << nboth << endl;
-    cout << "leave nunknown  =  " << nunknown << endl; //残り不明配置数。
-    cout << nblack + nwhite + nboth << endl;
-    cout << nunknown << endl; 
+    // 結果出力
+    // cout << "new nblack  =  " << nblack << endl;
+    // cout << "new nwhite  =  " << nwhite << endl;
+    // cout << "new nboth  =  " << nboth << endl;
+    // cout << "leave nunknown  =  " << nunknown << endl; //残り不明配置数。
+
     return 0;
 }

@@ -31,10 +31,9 @@ REF_MAX_L    ?= 4
 #                           確実に取りこぼしが無い条件(このコンビネーション内に手数の欠番があっても大丈夫)。
 #   STOP_RULE=or          : 従来のシェルスクリプトと同じ「ITER>0 で new が STOP_STREAK 回連続0なら終了」。
 #                           欠番があると未確定の局面を残したまま止まるため非推奨(比較用に残してある)。
-STOP_RULE    ?= bound
+STOP_RULE    ?= or
 STOP_STREAK  ?= 1
 ITER_MAX     ?= 254
-REACH_ITER_MAX ?= 1000
 
 # 1: bin/ に比較できる参照データが1つも無くても、警告だけで成功扱いにする(既定は0=失敗)
 ALLOW_NOREF  ?= 0
@@ -76,7 +75,7 @@ BUILD_STAMP  := .build_config
 
 # 初期配置のFEN(表参照のデモ用)。先手コマ=最下段中央、後手コマ=最上段中央、フェンス無し。
 HALF_M       := $(shell echo $$(( $(L) / 2 )))
-INIT_FEN     ?= $(N) 0 $(HALF_M)/$(HALF_M) $(shell echo $$(( ($(N)-1)*$(N) + $(N)/2 )))/$(shell echo $$(( $(N)/2 ))) $(shell printf '0%.0s' $$(seq 1 $$(( ($(N)-1)*($(N)-1) ))))
+FEN     ?= $(N) 0 $(HALF_M)/$(HALF_M) $(shell echo $$(( ($(N)-1)*$(N) + $(N)/2 )))/$(shell echo $$(( $(N)/2 ))) $(shell printf '0%.0s' $$(seq 1 $$(( ($(N)-1)*($(N)-1) ))))
 
 .PHONY: all build retrograde reachable lookup run run-retrograde run-reachable \
         lookup-demo lookup-check verify compare clean distclean help \
@@ -145,85 +144,192 @@ check-L:
 define RETRO_SCRIPT
 cd "$$RESULT_DIR" || exit 1
 mkdir -p logs
+
 HALF=$$(( MAXL / 2 ))
-declare -A MAXV   # (L,B,W) -> その表(自分のLファイル)に入っている手数の最大値
 
-# 表ファイル中の最大手数(255=不明を除く)をファイルから直接求める。MAXVに記録が無いときの保険。
-file_max() {
-  if [ ! -f "$$1" ]; then echo 0; return; fi
-  od -An -v -t u1 -j 12 "$$1" | tr -s ' ' '\n' | grep -v '^$$' | grep -vx 255 | sort -n | tail -n 1 | awk '{print ($$1=="")?0:$$1}'
-}
+one_leaves_num=0
+zdd_length_min=0
+zdd_length_max=0
+zdd_total_length=0
+zdd_length_ave=0
 
-for (( l=MAXL; l>=0; l-- )); do
-  for (( b=0; b<=HALF; b++ )); do
-    w=$$(( MAXL - l - b ))
-    if (( w < 0 || w > HALF )); then continue; fi
-    # 1回の実行で (L,B,W) と (L,W,B) の両方の表を解くので、B<=W の組合せだけ実行すればよい。
-    if (( b > w )); then continue; fi
-    LBW="quoridor_gamevalue_N$${N}L$${l}B$${b}W$${w}.bin"
-    LWB="quoridor_gamevalue_N$${N}L$${l}B$${w}W$${b}.bin"
-    P1=NULL; P2=NULL; K1=""; K2=""
-    if (( b > 0 )); then P1="quoridor_gamevalue_N$${N}L$$((l+1))B$${w}W$$((b-1)).bin"; K1="$$((l+1)),$${w},$$((b-1))"; fi
-    if (( w > 0 )); then P2="quoridor_gamevalue_N$${N}L$$((l+1))B$${b}W$$((w-1)).bin"; K2="$$((l+1)),$${b},$$((w-1))"; fi
-    LOG="logs/retrograde_L$${l}B$${b}W$${w}.log"
-    : > "$$LOG"
-    if [ "$$INITIALIZE" = 1 ]; then rm -f "$$LBW" "$$LWB"; fi
-    echo "[retrograde] N=$$N L=$$l B=$$b W=$$w  (表: $$LBW と $$LWB を同時に解く)"
+init_id_steps=255
+nwin=0
+nlose=0
+nunknown=0
+MAX_MOVES=0
 
-    # 参照するL+1側の表の最大手数(これは今回の実行では変化しない)
-    vref=0
-    for k in "$$K1" "$$K2"; do
-      if [ -n "$$k" ]; then
-        vk="$${MAXV[$$k]:-}"
-        if [ -z "$$vk" ]; then
-          IFS=, read -r kl kb kw <<< "$$k"
-          vk=$$(file_max "quoridor_gamevalue_N$${N}L$${kl}B$${kb}W$${kw}.bin")
-        fi
-        if (( vk > vref )); then vref=$$vk; fi
+# ITERを外側に置き、各ITERで全ての有効な(L,B,W)を処理する。
+for (( iter=0; iter<=ITER_MAX; iter++ )); do
+  echo "========== ITER=$$iter =========="
+  ALL_FINISHED=1
+  nunknown=0
+  for (( l=MAXL; l>=0; l-- )); do
+    for (( b=0; b<=HALF; b++ )); do
+      w=$$(( MAXL - l - b ))
+
+      # 元のシェルスクリプトと同じ条件。
+      # B>W であっても除外しない。
+      if (( w < 0 || w > HALF )); then continue; fi
+      # B/W対称性により、B>Wは解析しない
+      if (( b > w )); then continue; fi
+
+      LBW="quoridor_gamevalue_N$${N}L$${l}B$${b}W$${w}.bin"
+      LWB="quoridor_gamevalue_N$${N}L$${l}B$${w}W$${b}.bin"
+
+      P1=NULL
+      P2=NULL
+      if (( b > 0 )); then
+        P1="quoridor_gamevalue_N$${N}L$$((l+1))B$${w}W$$((b-1)).bin"
       fi
-    done
+      if (( w > 0 )); then
+        P2="quoridor_gamevalue_N$${N}L$$((l+1))B$${b}W$$((w-1)).bin"
+      fi
 
-    iter=0; streak=0; vcur=0
-    while true; do
-      out=$$("$$EXE" "$$N" "$$l" "$$b" "$$w" "$$iter" "$$LBW" "$$LWB" "$$P1" "$$P2") || { echo "ERROR: 後退解析の実行に失敗 (L=$$l B=$$b W=$$w ITER=$$iter)"; exit 1; }
+      LOG="logs/retrograde_L$${l}B$${b}W$${w}.log"
+
+      # 初期化とログ初期化はITER=0のときだけ行う。
+      if (( iter == 0 )); then
+        if [ "$$INITIALIZE" = 1 ]; then
+          rm -f "$$LBW" "$$LWB"
+        fi
+        : > "$$LOG"
+      fi
+
+      # echo "[retrograde] N=$$N L=$$l B=$$b W=$$w ITER=$$iter"
+
+      out=$$("$$EXE" "$$N" "$$l" "$$b" "$$w" "$$iter" \
+        "$$LBW" "$$LWB" "$$P1" "$$P2") || {
+          echo "ERROR: 後退解析の実行に失敗 (L=$$l B=$$b W=$$w ITER=$$iter)"
+          exit 1
+        }
+
       printf '%s\n' "$$out" >> "$$LOG"
-      new=$$(printf '%s\n' "$$out" | tail -n 2 | head -n 1)
-      unk=$$(printf '%s\n' "$$out" | tail -n 1)
-      own=$$(printf '%s\n' "$$out" | grep 'max moves' | tail -n 1 | awk '{print $$NF}')
-      own=$${own:-0}
-      vcur=$$own
-      echo "    ITER=$$iter new=$$new unknown=$$unk (判明済みの最大手数: 自分=$$own, 参照先=$$vref)"
-      if [ "$$unk" = "0" ]; then break; fi
-      if [ "$$STOP_RULE" = "or" ]; then
-        # 従来のシェルスクリプトと同じ条件(非推奨): ITER>0 で new==0 が続いたら打ち切る。
-        if (( iter > 0 )); then
-          if [ "$$new" = "0" ]; then
-            streak=$$(( streak + 1 ))
-            if (( streak >= STOP_STREAK )); then echo "    (STOP_RULE=or により打ち切り)"; break; fi
-          else
-            streak=0
+
+      # ZDDの葉数は各Lについて最初のITERでのみ加算する。
+      if (( iter == 0 )); then
+        l_one_leaves_num=$$(printf '%s\n' "$$out" | grep "L = $$l leaves" | tail -n 1 | awk '{print $$NF}')
+        if [[ "$$l_one_leaves_num" =~ ^[0-9]+$$ ]]; then
+          l_one_leaves_num=$$((10#$$l_one_leaves_num))
+          one_leaves_num=$$((one_leaves_num + l_one_leaves_num))
+          if((b != w)); then
+            one_leaves_num=$$((one_leaves_num + l_one_leaves_num))
           fi
+        else
+          echo "ERROR: ZDD leaves の取得に失敗 (L=$$l B=$$b W=$$w ITER=$$iter)"
+          exit 1
         fi
-      else
-        # 未確定の局面に今後付く値は「判明済みの子の値+1」だけ。判明済みの最大値をVとすると、
-        # ITER >= V+1 になれば、それ以上新しい値が付く可能性は無い(残りは決着しない局面)。
-        v=$$vcur; if (( vref > v )); then v=$$vref; fi
-        if (( iter >= v + 1 )); then echo "    (これ以上値が付く可能性が無いので終了。決着しない局面: $$unk)"; break; fi
+        
+        ref_length_min=$$(printf '%s\n' "$$out" | grep '^length min = ' | tail -n 1 | awk '{print $$NF}')
+        if((zdd_length_min == 0 || ref_length_min < zdd_length_min)); then
+          zdd_length_min=$$ref_length_min
+        fi
+        ref_length_max=$$(printf '%s\n' "$$out" | grep '^length max = ' | tail -n 1 | awk '{print $$NF}')
+        if((zdd_length_max == 0 || ref_length_max > zdd_length_max)); then
+          zdd_length_max=$$ref_length_max
+        fi
+
+        ref_length_ave=$$(printf '%s\n' "$$out" | grep '^L length ave = ' | tail -n 1 | awk '{print $$NF}')
+        ref_total_length=$$(bc <<< "scale=20; x=($$l_one_leaves_num * $$ref_length_ave) + 0.5; scale=0; x/1")
+        zdd_total_length=$$(bc <<< "$$zdd_total_length + $$ref_total_length")
+        if (( b != w )); then
+          zdd_total_length=$$(bc <<< "$$zdd_total_length + $$ref_total_length")
+        fi
+        zdd_length_ave=$$(bc <<< "scale=10; $$zdd_total_length / $$one_leaves_num")
       fi
-      iter=$$(( iter + 1 ))
-      if (( iter > ITER_MAX )); then echo "    (ITER_MAX=$$ITER_MAX に達したので打ち切り)"; break; fi
+
+      # L=0の初期配置の手数を取得する。
+      if (( l == 0 )); then
+        steps=$$(printf '%s\n' "$$out" | sed -n 's/.*Init Position Number of Steps[[:space:]]*=[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1)
+        if [ -n "$$steps" ]; then
+          init_id_steps=$$steps
+        fi
+      fi
+
+      # max movesの全体最大値を保持する（元スクリプトのMAX_MOVES相当）。
+      current_max_moves=$$(printf '%s\n' "$$out" | grep '^max moves = ' | tail -n 1 | awk '{print $$NF}')
+      if [[ "$$current_max_moves" =~ ^[0-9]+$$ ]] && (( current_max_moves > MAX_MOVES )); then
+        MAX_MOVES=$$current_max_moves
+      fi
+
+      # 新規に勝ち・負けと判定された数を集計する。
+      new_win=$$(printf '%s\n' "$$out" | grep 'new nwin' | tail -n 1 | awk '{print $$NF}')
+      new_lose=$$(printf '%s\n' "$$out" | grep 'new nlose' | tail -n 1 | awk '{print $$NF}')
+      new_win=$${new_win:-0}
+      new_lose=$${new_lose:-0}
+
+      # BとWを入れ替えた組み合わせは同じ2つの表を扱うため、
+      # B>Wの実行結果は集計しない。
+      if (( b > w )); then
+        new_win=0
+        new_lose=0
+      elif (( b == w )); then
+        new_win=$$(bc <<< "scale=0; $$new_win / 2")
+        new_lose=$$(bc <<< "scale=0; $$new_lose / 2")
+      fi
+      nwin=$$(bc <<< "$$nwin + $$new_win")
+      nlose=$$(bc <<< "$$nlose + $$new_lose")
+
+      total_updated=$$(printf '%s\n' "$$out" | grep 'total updated' | tail -n 1 | awk '{print $$NF}')
+      leave_unknown=$$(printf '%s\n' "$$out" | grep 'leave nunknown' | tail -n 1 | awk '{print $$NF}')
+      total_updated=$${total_updated:-0}
+      leave_unknown=$${leave_unknown:-0}
+      if (( b > w )); then
+        nunknown=$$nunknown
+      elif (( b == w )); then
+        nunknown=$$(bc <<< "$$nunknown + $$leave_unknown / 2")
+      else
+        nunknown=$$(bc <<< "$$nunknown + $$leave_unknown")
+      fi
+
+      # 元のシェルスクリプトと同じ終了条件：
+      # ITER=0は必ず継続。ITER>0では、1組でも更新数が非0なら次ITERへ進む。
+      # unknown=0だけでは終了させない。
+      if (( iter == 0 )) || [ "$$total_updated" != "0" ]; then
+        ALL_FINISHED=0
+      fi
     done
-    MAXV["$$l,$$b,$$w"]=$$vcur
-    MAXV["$$l,$$w,$$b"]=$$vcur
   done
+
+  # 全組合せを処理し終えてから、ITER全体の終了を判定する。
+  if (( ALL_FINISHED == 1 )); then
+    echo "========== ITER=$$iter で全組合せが終了条件を満たしました =========="
+    break
+  fi
 done
+
+# ITER_MAXまでに全組合せが終了しなかった場合はエラーにする。
+if (( iter > ITER_MAX )); then
+  echo "ERROR: ITER_MAX=$$ITER_MAX に達しました。全組合せが終了していません。"
+  exit 1
+fi
+
+echo "  ZDD"
+echo "    一葉経路数:$$one_leaves_num"
+echo "    最短経路長:$$zdd_length_min"
+echo "    最長経路長:$$zdd_length_max"
+echo "    合計経路長:$$zdd_total_length"
+echo "    平均経路長:$$zdd_length_ave"
+echo "  後退解析結果"
+echo "    初期配置の手数:$$init_id_steps"
+echo "    先手勝ち配置数:$$nwin"
+echo "    先手負け配置数:$$nlose"
+echo "    勝敗不明配置数:$$nunknown"
+echo "    全体の最大手数:$$MAX_MOVES"
+
 endef
 
 # 到達可能配置解析: 初期配置(L=0)から前向きに伝播するので、Lを0から昇順に。各(L,B,W)で new==0 になるまで反復。
 define REACH_SCRIPT
 cd "$$RESULT_DIR" || exit 1
 mkdir -p logs
+
 HALF=$$(( MAXL / 2 ))
+nblack=0
+nwhite=0
+nboth=0
+nunknown=0
+
 if [ "$$INITIALIZE" = 1 ]; then rm -f quoridor_reachable_N$${N}L*.bin; fi
 for (( l=0; l<=MAXL; l++ )); do
   for (( b=0; b<=HALF; b++ )); do
@@ -236,19 +342,45 @@ for (( l=0; l<=MAXL; l++ )); do
     LOG="logs/reachable_L$${l}B$${b}W$${w}.log"
     : > "$$LOG"
     echo "[reachable] N=$$N L=$$l B=$$b W=$$w"
-    loop=1
+    
+    LBW_nblack=0
+    LBW_nwhite=0
+    LBW_nboth=0
+    LBW_nunknown=0
+    
     while true; do
       out=$$("$$EXE" "$$N" "$$l" "$$b" "$$w" "$$F" "$$P1" "$$P2") || { echo "ERROR: 到達可能解析の実行に失敗 (L=$$l B=$$b W=$$w loop=$$loop)"; exit 1; }
       printf '%s\n' "$$out" >> "$$LOG"
-      new=$$(printf '%s\n' "$$out" | tail -n 2 | head -n 1)
-      unk=$$(printf '%s\n' "$$out" | tail -n 1)
-      echo "    loop=$$loop new=$$new unknown=$$unk"
-      if [ "$$new" = "0" ]; then break; fi
-      loop=$$(( loop + 1 ))
-      if (( loop > REACH_ITER_MAX )); then echo "    (REACH_ITER_MAX に達したので打ち切り)"; break; fi
+      
+      LBW_nblack=$$(printf '%s\n' "$$out" | grep 'nblack_LBW' | tail -n 1 | awk '{print $$NF}')
+      LBW_nwhite=$$(printf '%s\n' "$$out" | grep 'nwhite_LBW' | tail -n 1 | awk '{print $$NF}')
+      LBW_nboth=$$(printf '%s\n' "$$out" | grep 'nboth_LBW' | tail -n 1 | awk '{print $$NF}')
+      LBW_nunknown=$$(printf '%s\n' "$$out" | grep 'nunknown_LBW' | tail -n 1 | awk '{print $$NF}')
+      LBW_nblack=$${LBW_nblack:-0}
+      LBW_nwhite=$${LBW_nwhite:-0}
+      LBW_nboth=$${LBW_nboth:-0}
+      LBW_nunknown=$${LBW_nunknown:-0}
+
+      total_updated=$$(printf '%s\n' "$$out" | grep 'total updated' | tail -n 1 | awk '{print $$NF}')
+      total_updated=$${total_updated:-0}
+
+      if [ "$$total_updated" = "0" ]; then break; fi
     done
+
+    nblack=$$(bc <<< "$$nblack + $$LBW_nblack")
+    nwhite=$$(bc <<< "$$nwhite + $$LBW_nwhite")
+    nboth=$$(bc <<< "$$nboth + $$LBW_nboth")
+    nunknown=$$(bc <<< "$$nunknown + $$LBW_nunknown")
+
   done
 done
+
+echo "  到達可能配置解析結果"
+echo "    先手到達可能:$$nblack"
+echo "    後手到達可能:$$nwhite"
+echo "    両手到達可能:$$nboth"
+echo "    両者到達不可能:$$nunknown"
+
 endef
 
 export RETRO_SCRIPT
@@ -272,8 +404,8 @@ run: run-reachable run-retrograde
 # ----------------------------- 表参照 ---------------------------------------
 lookup-demo: $(LOOKUP_EXE)
 	@test -d $(RESULT_DIR) || { echo "ERROR: $(RESULT_DIR) がありません。先に make run を実行してください。"; exit 1; }
-	@echo "FEN = $(INIT_FEN)"
-	@cd $(RESULT_DIR) && $(abspath $(LOOKUP_EXE)) "$(INIT_FEN)"
+	@echo "FEN = $(FEN)"
+	@cd $(RESULT_DIR) && $(abspath $(LOOKUP_EXE)) "$(FEN)"
 
 # 後退解析ログ中の「初期配置の手数」と、表参照プログラムが返す値が一致するか確認する。
 define LOOKUP_CHECK_SCRIPT
@@ -292,7 +424,7 @@ endef
 export LOOKUP_CHECK_SCRIPT
 
 lookup-check: $(LOOKUP_EXE)
-	@N=$(N) MAXL=$(L) RESULT_DIR=$(RESULT_DIR) LOOKUP_EXE=$(abspath $(LOOKUP_EXE)) FEN="$(INIT_FEN)" bash -c "$$LOOKUP_CHECK_SCRIPT"
+	@N=$(N) MAXL=$(L) RESULT_DIR=$(RESULT_DIR) LOOKUP_EXE=$(abspath $(LOOKUP_EXE)) FEN="$(FEN)" bash -c "$$LOOKUP_CHECK_SCRIPT"
 
 # ----------------------------- 参照データとの比較 ---------------------------
 define COMPARE_SCRIPT
@@ -331,18 +463,33 @@ compare:
 
 # ビルド → 最初から全解析 → 表参照の確認 → bin/ との比較 を一度に行う。
 verify: check-L
-	@rm -rf $(RESULT_DIR)
-	@$(MAKE) --no-print-directory run INITIALIZE=1
-	@$(MAKE) --no-print-directory lookup-check
-	@$(MAKE) --no-print-directory compare
+	# @rm -rf $(RESULT_DIR)
+	# @$(MAKE) --no-print-directory run INITIALIZE=1
+	# @$(MAKE) --no-print-directory lookup-check
+	# @$(MAKE) --no-print-directory compare
+  # N=3、L=0,2,4の解析をすべて実行してから、Lookup確認とサンプル比較を行う。
+
+	@$(MAKE) --no-print-directory run N=3 L=0 INITIALIZE=1
+	@$(MAKE) --no-print-directory run N=3 L=2 INITIALIZE=1
+	@$(MAKE) --no-print-directory run N=3 L=4 INITIALIZE=1
+
+	@$(MAKE) --no-print-directory lookup-check N=3 L=0
+	@$(MAKE) --no-print-directory lookup-check N=3 L=2
+	@$(MAKE) --no-print-directory lookup-check N=3 L=4
+
+	@$(MAKE) --no-print-directory compare N=3 L=0
+	@$(MAKE) --no-print-directory compare N=3 L=2
+	@$(MAKE) --no-print-directory compare N=3 L=4
+
+	@echo "=== Verify: N=3 L=0,2,4 の全確認が完了しました ==="
 
 # ----------------------------- 後始末 ---------------------------------------
 # オブジェクトファイルと実行ファイルだけを削除する。bin/ の結果データ(参照データ)や results/ は消さない。
 clean:
 	rm -f $(COMMON_OBJS) $(RETRO_OBJ) $(REACH_OBJ) $(LOOKUP_OBJ) $(EXES) $(BUILD_STAMP)
 
-# clean に加えて、make run / verify が作った results/ も削除する。
-distclean: clean
+# make run / verify が作った results/ も削除する。
+delete-result:
 	rm -rf $(RESULT_ROOT)
 
 help:
@@ -353,9 +500,9 @@ help:
 	@echo "                        (結果は $(RESULT_ROOT)/N<N>L<L>/ に出力)"
 	@echo "  make run-reachable / run-retrograde   片方だけ実行"
 	@echo "  make lookup-demo      初期配置を表参照プログラムで引く (FEN=... で任意の配置も可)"
-	@echo "  make verify N=3 L=4   最初から全解析し、bin/ の既存データと比較 (参照範囲: N<=$(REF_MAX_N), L<=$(REF_MAX_L))"
+	@echo "  make verify           N=3系を最初から全解析し、bin/ の既存データと比較
 	@echo "  make compare          既にある結果を bin/ の既存データと比較するだけ"
 	@echo "  make clean            オブジェクトファイル・実行ファイルを削除 (bin/ の結果データは残る)"
-	@echo "  make distclean        clean + results/ を削除"
+	@echo "  make delete-result        results/ を削除"
 	@echo "  make patch-header     zdd_quoridor_board_only.hpp の N を Makefile から切り替えられる形に書き換える"
 	@echo "主な変数: N L REF_MAX_N REF_MAX_L STOP_RULE(bound/or) ITER_MAX INITIALIZE(1/0) OPT CXX"

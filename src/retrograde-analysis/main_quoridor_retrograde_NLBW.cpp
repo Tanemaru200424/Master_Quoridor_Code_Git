@@ -38,7 +38,7 @@ unsigned long long int one_leaves_num_Lp1WBm1 = 0ULL; //LBWでフェンスを使
 unsigned long long int one_leaves_num_Lp1BWm1 = 0ULL; //LWBでフェンスを使った時に参照する子配置
 
 unsigned long long int table_size64 = 0ULL; //uint64を8ビットエントリにした時のゲーム値表のサイズ。
-constexpr int nworker = 1; //分割数（特に指定はない。後で調整。）
+constexpr int nworker = 7; //分割数（特に指定はない。後で調整。）
 constexpr int deq_input_size = 1024; //分割したスレッドに渡すデータのサイズ（とりあえずこれ。後で調整。）
 constexpr int deq_output_size = 256; //スレッドが返す結果のデータのサイズ（とりあえずこれ。後で調整。）
 
@@ -115,12 +115,12 @@ public:
             }
             else {
                 //ヘッダー読み込み
-                cout << "read header LBW: ";
+                //cout << "read header LBW: ";
                 for(int i = 0; i < 12; i++){
                     m_ifs_LBW.read((char*)header_LBW + i, 1U);
-                    cout << (int)header_LBW[i] << " ";
+                    //cout << (int)header_LBW[i] << " ";
                 }
-                cout << endl;
+                //cout << endl;
 
                 //ヘッダー情報照合
                 if(header_LBW[0] != table_entry_size){
@@ -152,12 +152,12 @@ public:
             }
             else {       
                 //ヘッダー読み込み
-                cout << "read header LWB: ";
+                //cout << "read header LWB: ";
                 for(int i = 0; i < 12; i++){
                     m_ifs_LWB.read((char*)header_LWB + i, 1U);
-                    cout << (int)header_LWB[i] << " ";
+                    //cout << (int)header_LWB[i] << " ";
                 }
-                cout << endl;
+                //cout << endl;
 
                 //ヘッダー情報照合
                 if(header_LWB[0] != table_entry_size){
@@ -188,12 +188,12 @@ public:
                 terminate();
             }
             else {       
-                cout << "read header Lp1WBm1: ";
+                //cout << "read header Lp1WBm1: ";
                 for(int i = 0; i < 12; i++){
                     m_ifs_Lp1WBm1.read((char*)header_Lp1WBm1 + i, 1U);
-                    cout << (int)header_Lp1WBm1[i] << " ";
+                    //cout << (int)header_Lp1WBm1[i] << " ";
                 }
-                cout << endl;
+                //cout << endl;
 
                 //ヘッダー情報照合
                 if(header_Lp1WBm1[0] != table_entry_size){
@@ -224,12 +224,12 @@ public:
                 terminate();
             }
             else {     
-                cout << "read header Lp1BWm1: ";  
+                //cout << "read header Lp1BWm1: ";  
                 for(int i = 0; i < 12; i++){
                     m_ifs_Lp1BWm1.read((char*)header_Lp1BWm1 + i, 1U);
-                    cout << (int)header_Lp1BWm1[i] << " ";
+                    //cout << (int)header_Lp1BWm1[i] << " ";
                 }
-                cout << endl;
+                //cout << endl;
 
                 //ヘッダー情報照合
                 if(header_Lp1BWm1[0] != table_entry_size){
@@ -331,10 +331,10 @@ public:
             m_changed_flags[i] = 0ULL;
         }
 
-        cout << "read file name LBW = " << read_file_name_LBW << endl;
-        cout << "read file name LWB = " << read_file_name_LWB << endl;
-        cout << "read file name Lp1WBm1 = " << read_file_name_Lp1WBm1 << endl;
-        cout << "read file name Lp1BWm1 = " << read_file_name_Lp1BWm1 << endl;
+        //cout << "read file name LBW = " << read_file_name_LBW << endl;
+        //cout << "read file name LWB = " << read_file_name_LWB << endl;
+        //cout << "read file name Lp1WBm1 = " << read_file_name_Lp1WBm1 << endl;
+        //cout << "read file name Lp1BWm1 = " << read_file_name_Lp1BWm1 << endl;
 
         InTable_By_FourFile in_table_by_fourfile(read_file_name_LBW, read_file_name_LWB, read_file_name_Lp1WBm1, read_file_name_Lp1BWm1); //長い数字は1葉配置数に変える。
         //メモリにゲーム値表を作成
@@ -347,10 +347,10 @@ public:
             //盤面フェンス数Lの配置に対してのみ、勝敗結果の数を記録。
             if(i < one_leaves_num_LBW + one_leaves_num_LWB){
                 if(i == one_leaves_num_LBW){
-                    cout << "LBW table" << endl;
-                    cout << "table LBW nwin  =  " << temp_nwin << endl;
-                    cout << "table LBW nlose  =  " << temp_nlose << endl;
-                    cout << "table LBW nunknown  =  " << temp_nunknown << endl;
+                    // cout << "LBW table" << endl;
+                    cout << "table LBW nwin = " << temp_nwin << endl;
+                    cout << "table LBW nlose = " << temp_nlose << endl;
+                    cout << "table LBW nunknown = " << temp_nunknown << endl;
                     temp_nwin = 0ULL;
                     temp_nlose = 0ULL;
                     temp_nunknown = 0ULL;
@@ -372,16 +372,16 @@ public:
             set_only(i, v);
         }
         
-        cout << "LWB table" << endl;
-        cout << "table LWB nwin  =  " << temp_nwin << endl;
-        cout << "table LWB nlose  =  " << temp_nlose << endl;
-        cout << "table LWB nunknown  =  " << temp_nunknown << endl;
+        //cout << "LWB table" << endl;
+        //cout << "table LWB nwin  =  " << temp_nwin << endl;
+        //cout << "table LWB nlose  =  " << temp_nlose << endl;
+        //cout << "table LWB nunknown  =  " << temp_nunknown << endl;
 
-        cout << "total table" << endl;
-        cout << "table nwin  =  " << nwin << endl;
-        cout << "table nlose  =  " << nlose << endl;
-        cout << "table nunknown  =  " << nunknown << endl;
-        cout << "last unknown  =  " << lunknown << endl;
+        //cout << "total table" << endl;
+        //cout << "table nwin  =  " << nwin << endl;
+        //cout << "table nlose  =  " << nlose << endl;
+        //cout << "table nunknown  =  " << nunknown << endl;
+        //cout << "last unknown  =  " << lunknown << endl;
 
         //新しく判明した勝敗を実行後出力したい。
         nwin = 0; //ここで勝ち配置数を0にする。
@@ -513,7 +513,7 @@ public:
             ifstream ifs(filename_LBW, ifstream::binary);
             if (ifs) {
                 // ファイルが存在する場合は何もしない（既存データを保護する）
-                cout << "Initial file checking: " << filename_LBW << " already exists. Skip initialization." << endl;
+                // cout << "Initial file checking: " << filename_LBW << " already exists. Skip initialization." << endl;
                 ifs.close();
             }
             else{
@@ -524,7 +524,7 @@ public:
                     terminate();
                 }
 
-                cout << "--- [First Time Execution] Creating Initial Base File (" << filename_LBW << ") ---" << endl;
+                // cout << "--- [First Time Execution] Creating Initial Base File (" << filename_LBW << ") ---" << endl;
 
                 //ヘッダー10バイトの書き込み
                 unsigned char header_LBW[12];
@@ -565,7 +565,7 @@ public:
                     ofs.write((char*)&m_buffer, 1U);
                 }
 
-                cout << "Base file generated successfully by sequential buffering logic." << endl;
+                /// cout << "Base file generated successfully by sequential buffering logic." << endl;
                 ofs.close();
             }
         }
@@ -579,7 +579,7 @@ public:
             //ファイルがすでに存在するかどうかチェックする（開ければ存在する）
             if (ifs) {
                 // ファイルが存在する場合は何もしない（既存データを保護する）
-                cout << "Initial file checking: " << filename_LWB << " already exists. Skip initialization." << endl;
+                // cout << "Initial file checking: " << filename_LWB << " already exists. Skip initialization." << endl;
                 ifs.close();
             }
             else{
@@ -590,7 +590,7 @@ public:
                     terminate();
                 }
 
-                cout << "--- [First Time Execution] Creating Initial Base File (" << filename_LWB << ") ---" << endl;
+                // cout << "--- [First Time Execution] Creating Initial Base File (" << filename_LWB << ") ---" << endl;
 
                 //ヘッダー10バイトの書き込み
                 unsigned char header_LWB[12];
@@ -631,7 +631,7 @@ public:
                     ofs.write((char*)&m_buffer, 1U);
                 }
 
-                cout << "Base file generated successfully by sequential buffering logic." << endl;
+                // cout << "Base file generated successfully by sequential buffering logic." << endl;
                 ofs.close();
             }
         }
@@ -671,14 +671,14 @@ deque<Work *> deq_output; //workerからbossに解析後の配置を渡す時に
 
 //WorkerへのID割り振りと、Workerからもらった配置IDを基にゲーム値表を更新。
 static void boss(const string &read_file_name_LBW, const string &read_file_name_LWB, const string &read_file_name_Lp1WBm1, const string &read_file_name_Lp1BWm1) noexcept {
-    cout << "boss" << endl;
+    // cout << "boss" << endl;
     //OutTable_By_TwoFile::Create_Initial_File(read_file_name_L); //各分割の最初の実行において、基準となるLファイルは存在しない。ここで作る。
     OutTable_By_FourFile::Create_Initial_File(read_file_name_LBW, read_file_name_LWB);
     //Table_By_TwoFile table(read_file_name_L, read_file_name_Lp1);
     Table_By_FourFile table(read_file_name_LBW, read_file_name_LWB, read_file_name_Lp1WBm1, read_file_name_Lp1BWm1);
-    cout << "before new nwin  =  " << nwin << endl;
-    cout << "before new nlose  =  " << nlose << endl;
-    cout << "before leave nunknown  =  " << nunknown << endl;
+    // cout << "before new nwin  =  " << nwin << endl;
+    // cout << "before new nlose  =  " << nlose << endl;
+    // cout << "before leave nunknown  =  " << nunknown << endl;
     
     unsigned long long int count_input = 0ULL; //workerに割り振った配置数。これを基準に表から配置を参照する。
     unsigned long long int count_output = 0ULL; //workerから受け取った配置数。これを基準に表から配置を参照する。
@@ -717,7 +717,7 @@ static void boss(const string &read_file_name_LBW, const string &read_file_name_
             deq_input.push_front(pw); //worker向けに新しい仕事を追加する。
             lck.unlock(); //ロック解放。workerがキューに触れるようになる。
             count_input++; //入力work数をインクリメント。
-            if(count_input % 100000000ULL == 0ULL) cout << count_input << " " << nwin << " " << nlose << " " << nunknown << endl;
+            //if(count_input % 100000000ULL == 0ULL) cout << count_input << " " << nwin << " " << nlose << " " << nunknown << endl;
             cv_worker.notify_one(); //sleep状態のworkerスレッドを1つ起こして仕事させる。
         } else { //キューに空きがない（仕事割り振りスペースがないかこれ以上結果を受け取れない）、あるいは最後の配置まで解析が終わっていないなら
             if (0 < deq_output.size()) { //workerから結果が少なくとも1つ帰ってきている。
@@ -849,7 +849,10 @@ static void boss(const string &read_file_name_LBW, const string &read_file_name_
         }
     }
     cout << "max moves = " << max_moves << endl;
-    cout << "File overwrite completed. Total " << update_counter << " elements updated." << endl;
+    cout << "new nwin = " << nwin << endl; //新しい勝ち配置数。
+    cout << "new nlose = " << nlose << endl; // 新しい負け配置数。
+    cout << "total updated = " << nwin + nlose << endl; // 新しくラベルが付いた配置数。
+    cout << "leave nunknown = " << nunknown << endl; //残り不明配置数。
 
     unique_lock<mutex> lck(mtx); //ロック
     flag_worker_quit = true; //仕事が終わったことを表すフラグ
@@ -948,6 +951,7 @@ int main(int argc, char *argv[]) {
 
     //最初にZDDを構築。
     zdd = ZDD(L);
+    zdd.View_Root_Info();
     one_leaves_num = zdd.One_Leaves_Num();
     one_leaves_num_L = zdd.One_Leaves_Num_L();
     one_leaves_num_Lp1 = zdd.One_Leaves_Num_Lp1();
@@ -974,10 +978,10 @@ int main(int argc, char *argv[]) {
     }
 
     //結果出力
-    cout << "after new nwin  =  " << nwin << endl; //新しい勝ち配置数。
-    cout << "after new nlose  =  " << nlose << endl; // 新しい負け配置数。
-    cout << "after leave nunknown  =  " << nunknown << endl; //残り不明配置数。
-    cout << nwin + nlose << endl; //新たにゲーム値がついた配置
-    cout << nunknown << endl; //ゲーム値がついていない配置
+    // cout << "after new nwin  =  " << nwin << endl; //新しい勝ち配置数。
+    // cout << "after new nlose  =  " << nlose << endl; // 新しい負け配置数。
+    // cout << "after leave nunknown  =  " << nunknown << endl; //残り不明配置数。
+    // cout << nwin + nlose << endl; //新たにゲーム値がついた配置
+    // cout << nunknown << endl; //ゲーム値がついていない配置
     return 0;
 }

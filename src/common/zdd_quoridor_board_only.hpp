@@ -12,6 +12,7 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
+#include <climits>
 
 //等価節点共有改良で使う。
 #include <unordered_map>
@@ -70,6 +71,7 @@ class ZDD {
 private:
     Node* m_starts[2]; //各開始点から始まるZDDを格納。
     unsigned long long int array_one_leaves_num[2]; //盤面フェンス数LとL+1の2つの根。
+    unsigned long long int node_count = 0;
 
     //盤面全体のコマのマスの座標からマス盤面における要素番号を返す。
     //コマのマスはN×Nで左上から0右下へ～N^2-1までの番号を付ける。
@@ -269,9 +271,15 @@ public:
         unsigned long long int node_count = 1;
         if(!n->zero_branch->is_visited) node_count += DFS(n->zero_branch); //0枝の先が未訪問ならその先でもdfs
         if(!n->one_branch->is_visited) node_count += DFS(n->one_branch); //1枝の先が未訪問ならその先でもdfs
+        int child_max = max(n->zero_branch->lengthmax, n->one_branch->lengthmax);
         n->one_leaves_num = n->zero_branch->one_leaves_num + n->one_branch->one_leaves_num; //今の節点から到達可能な1葉の数は0枝と1枝の先の節点から到達可能な1葉の数の和
-        n->lengthmax = max(n->zero_branch->lengthmax, n->one_branch->lengthmax) + 1; //0枝と1枝のうち長い方に1足したもの。
-        n->lengthmin = min(n->zero_branch->lengthmin, n->one_branch->lengthmin) + 1; //0枝と1枝のうち短い方に1足したもの。
+        // n->lengthmax = max(n->zero_branch->lengthmax, n->one_branch->lengthmax) + 1; //0枝と1枝のうち長い方に1足したもの。
+        n->lengthmax = (child_max == INT_MIN) ? INT_MIN : child_max + 1;
+        
+        int child_min = min(n->zero_branch->lengthmin, n->one_branch->lengthmin);
+        // n->lengthmin = min(n->zero_branch->lengthmin, n->one_branch->lengthmin) + 1; //0枝と1枝のうち短い方に1足したもの。
+        n->lengthmin = (child_min == INT_MAX) ? INT_MAX : child_min + 1;
+        
         n->total_length = n->zero_branch->total_length + n->one_branch->total_length + n->one_leaves_num; //0枝と1枝の合計経路長に到達可能な1葉の数を足したもの。
         n->is_visited = true; //今の節点を訪問済みにする
         return node_count;
@@ -492,12 +500,16 @@ public:
         cout << "L = " << L+1 << " leaves = " << array_one_leaves_num[1] - array_one_leaves_num[0] << endl;
 
         cout << "one leaves num = " << array_one_leaves_num[1] << endl;
+        cout << "node count = " << node_count << endl;
         cout << "length max = " << now_lengthmax << endl;
         cout << "length min = " << now_lengthmin << endl;
+        cout << "L total length = " << m_starts[0]->total_length << endl;
         cout << "total length = " << now_total_length << endl;
+        cout << "L length ave = " << (double)m_starts[0]->total_length / (double)array_one_leaves_num[0] << endl; 
         cout << "length ave = " << (double)now_total_length / (double)array_one_leaves_num[1] << endl;
     }
 
+    /*
     //ZDDの情報を全部ファイルにかき出す。
     void Output_Root_Info()const noexcept{
 
@@ -531,6 +543,7 @@ public:
 
         ofs.close();
     }
+    */
 
     //作られた組合せ全てをfen形式に変換。本来のFen形式とは違うが文字列1行で盤面を表現できる。
     void Output_BoardString()const noexcept{

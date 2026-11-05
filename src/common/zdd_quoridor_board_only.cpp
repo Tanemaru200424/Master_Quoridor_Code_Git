@@ -255,7 +255,7 @@ array<Node*, 2> ZDD::Construct_ZDD(int L) noexcept {
         result[i] = nodes_que[0][i];
     }
     //ZDD構築と並行して行う節点数計算とDFSによる節点数計算が同じか確かめる。
-    cout << "node count = " << node_count << endl;
-    cout << "node count dfs = " << node_count_dfs << endl;
+    //cout << "node count = " << node_count << endl;
+    //cout << "node count dfs = " << node_count_dfs << endl;
     return result;
 }
