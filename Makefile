@@ -45,27 +45,36 @@ CXX          ?= g++
 OPT          ?= -O2
 
 # ----------------------------- ディレクトリ・ファイル -----------------------
-COMMON_DIR   := src/common
-RETRO_DIR    := src/retrograde-analysis
-REACH_DIR    := src/reachability
-LOOKUP_DIR   := src/lookup
-BIN_DIR      := bin
-RESULT_ROOT  := results
-RESULT_DIR   := $(RESULT_ROOT)/N$(N)L$(L)
+COMMON_DIR                := src/common
+RETRO_DIR                 := src/retrograde-analysis
+REACH_DIR                 := src/reachability
+LEGAL_ACTIONS_DIR         := src/legal-actions
+REACHABLE_BLACKWIN_DIR    := src/reachable-blackwin
+ZUGZWANG_DIR              := src/zugzwang
+LOOKUP_DIR                := src/lookup
+BIN_DIR                   := bin
+RESULT_ROOT               := results
+RESULT_DIR                := $(RESULT_ROOT)/N$(N)L$(L)
 
 ZDD_HPP      := $(COMMON_DIR)/zdd_quoridor_board_only.hpp
 HEADERS      := $(wildcard $(COMMON_DIR)/*.hpp)
 
-COMMON_OBJS  := $(COMMON_DIR)/zdd_quoridor_board_only.o \
-                $(COMMON_DIR)/posi_quoridor_board_only.o
-RETRO_OBJ    := $(RETRO_DIR)/quoridor_retrograde.o
-REACH_OBJ    := $(REACH_DIR)/quoridor_reachable.o
-LOOKUP_OBJ   := $(LOOKUP_DIR)/quoridor_lookup.o
+COMMON_OBJS             := $(COMMON_DIR)/zdd_quoridor_board_only.o \
+                           $(COMMON_DIR)/posi_quoridor_board_only.o
+RETRO_OBJ               := $(RETRO_DIR)/quoridor_retrograde.o
+REACH_OBJ               := $(REACH_DIR)/quoridor_reachable.o
+LEGAL_ACTIONS_OBJ       := $(LEGAL_ACTIONS_DIR)/quoridor_legal_actions.o
+REACHABLE_BLACKWIN_OBJ  := $(REACHABLE_BLACKWIN_DIR)/quoridor_reachable_blackwin.o
+ZUGZWANG_OBJ            := $(ZUGZWANG_DIR)/quoridor_zugzwang.o
+LOOKUP_OBJ              := $(LOOKUP_DIR)/quoridor_lookup.o
 
-RETRO_EXE    := $(BIN_DIR)/quoridor_retrograde_exe
-REACH_EXE    := $(BIN_DIR)/quoridor_reachable_exe
-LOOKUP_EXE   := $(BIN_DIR)/quoridor_lookup_exe
-EXES         := $(RETRO_EXE) $(REACH_EXE) $(LOOKUP_EXE)
+RETRO_EXE               := $(BIN_DIR)/quoridor_retrograde_exe
+REACH_EXE               := $(BIN_DIR)/quoridor_reachable_exe
+LOOKUP_EXE              := $(BIN_DIR)/quoridor_lookup_exe
+LEGAL_ACTIONS_EXE       := $(BIN_DIR)/quoridor_legal_actions_exe
+REACHABLE_BLACKWIN_EXE  := $(BIN_DIR)/quoridor_reachable_blackwin_exe
+ZUGZWANG_EXE            := $(BIN_DIR)/quoridor_zugzwang_exe
+EXES                    := $(RETRO_EXE) $(REACH_EXE) $(LOOKUP_EXE) $(LEGAL_ACTIONS_EXE) $(REACHABLE_BLACKWIN_EXE) $(ZUGZWANG_EXE)
 
 # Nはコンパイル時定数なので -DQUORIDOR_N で渡す。Nが変わったらオブジェクトを作り直す。
 CPPFLAGS     := -I$(COMMON_DIR) -DQUORIDOR_N=$(N)
@@ -84,10 +93,13 @@ FEN     ?= $(N) 0 $(HALF_M)/$(HALF_M) $(shell echo $$(( ($(N)-1)*$(N) + $(N)/2 )
 all: build
 
 # ----------------------------- ビルド ---------------------------------------
-build: $(EXES)
-retrograde: $(RETRO_EXE)
-reachable:  $(REACH_EXE)
-lookup:     $(LOOKUP_EXE)
+build:              $(EXES)
+retrograde:         $(RETRO_EXE)
+reachable:          $(REACH_EXE)
+lookup:             $(LOOKUP_EXE)
+legal-actions:      $(LEGAL_ACTIONS_EXE)
+reachable-blackwin: $(REACHABLE_BLACKWIN_EXE)
+zugzwang:           $(ZUGZWANG_EXE)
 
 # Nの値を記録し、変わったときだけスタンプを更新する(=オブジェクトの作り直しを促す)
 FORCE:
@@ -106,6 +118,15 @@ $(REACH_OBJ): $(REACH_DIR)/main_quoridor_reachable_NLBW.cpp $(HEADERS) $(BUILD_S
 $(LOOKUP_OBJ): $(LOOKUP_DIR)/main_quoridor_lookup_NLBW.cpp $(HEADERS) $(BUILD_STAMP) | check-header
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
+$(LEGAL_ACTIONS_OBJ): $(LEGAL_ACTIONS_DIR)/main_quoridor_legal_actions_NLBW.cpp $(HEADERS) $(BUILD_STAMP) | check-header
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
+$(REACHABLE_BLACKWIN_OBJ): $(REACHABLE_BLACKWIN_DIR)/main_quoridor_reachable_blackwin_NLBW.cpp $(HEADERS) $(BUILD_STAMP) | check-header
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
+$(ZUGZWANG_OBJ): $(ZUGZWANG_DIR)/main_quoridor_zugzwang_NLBW.cpp $(HEADERS) $(BUILD_STAMP) | check-header
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+
 $(RETRO_EXE): $(RETRO_OBJ) $(COMMON_OBJS)
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $^ -o $@ $(LDLIBS)
@@ -115,6 +136,18 @@ $(REACH_EXE): $(REACH_OBJ) $(COMMON_OBJS)
 	$(CXX) $^ -o $@ $(LDLIBS)
 
 $(LOOKUP_EXE): $(LOOKUP_OBJ) $(COMMON_OBJS)
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $^ -o $@ $(LDLIBS)
+
+$(LEGAL_ACTIONS_EXE): $(LEGAL_ACTIONS_OBJ) $(COMMON_OBJS)
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $^ -o $@ $(LDLIBS)
+
+$(REACHABLE_BLACKWIN_EXE): $(REACHABLE_BLACKWIN_OBJ) $(COMMON_OBJS)
+	@mkdir -p $(BIN_DIR)
+	$(CXX) $^ -o $@ $(LDLIBS)
+
+$(ZUGZWANG_EXE): $(ZUGZWANG_OBJ) $(COMMON_OBJS)
 	@mkdir -p $(BIN_DIR)
 	$(CXX) $^ -o $@ $(LDLIBS)
 
@@ -349,7 +382,7 @@ for (( l=0; l<=MAXL; l++ )); do
     LBW_nunknown=0
     
     while true; do
-      out=$$("$$EXE" "$$N" "$$l" "$$b" "$$w" "$$F" "$$P1" "$$P2") || { echo "ERROR: 到達可能解析の実行に失敗 (L=$$l B=$$b W=$$w loop=$$loop)"; exit 1; }
+      out=$$("$$EXE" "$$N" "$$l" "$$b" "$$w" "$$F" "$$P1" "$$P2") || { echo "ERROR: 到達可能解析の実行に失敗 (L=$$l B=$$b W=$$w)"; exit 1; }
       printf '%s\n' "$$out" >> "$$LOG"
       
       LBW_nblack=$$(printf '%s\n' "$$out" | grep 'nblack_LBW' | tail -n 1 | awk '{print $$NF}')
@@ -383,8 +416,193 @@ echo "    両者到達不可能:$$nunknown"
 
 endef
 
+define LEGAL_ACTIONS_SCRIPT
+cd "$$RESULT_DIR" || exit 1
+mkdir -p logs
+
+HALF=$$(( MAXL / 2 ))
+
+max_black_actions=0
+total_black_actions=0
+black_reachable_num=0
+ave_black_actions=0
+
+max_white_actions=0
+total_white_actions=0
+white_reachable_num=0
+ave_white_actions=0
+
+max_actions=0
+total_actions=0
+reachable_num=0
+ave_actions=0
+
+for (( l=0; l<=MAXL; l++ )); do
+  for (( b=0; b<=HALF; b++ )); do
+    w=$$(( MAXL - l - b ))
+    if (( w < 0 || w > HALF )); then continue; fi
+    F="quoridor_reachable_N$${N}L$${l}B$${b}W$${w}.bin"
+    LOG="logs/legal_actions_L$${l}B$${b}W$${w}.log"
+    : > "$$LOG"
+    echo "[legal moves] N=$$N L=$$l B=$$b W=$$w"
+    
+    out=$$("$$EXE" "$$N" "$$l" "$$b" "$$w" "$$F") || { echo "ERROR: 合法手数解析の実行に失敗 (L=$$l B=$$b W=$$w)"; exit 1; }
+    printf '%s\n' "$$out" >> "$$LOG"
+      
+    # 先手合法手数関係
+    ref_max_black_actions=$$(printf '%s\n' "$$out" | grep '^max black actions = ' | tail -n 1 | awk '{print $$NF}')
+    if (( ref_max_black_actions > max_black_actions )); then
+      max_black_actions=$$ref_max_black_actions
+    fi
+    max_black_actions=$${max_black_actions:-0}
+      
+    ref_total_black_actions=$$(printf '%s\n' "$$out" | grep '^total black actions = ' | tail -n 1 | awk '{print $$NF}')
+    total_black_actions=$$(bc <<< "$$total_black_actions + $$ref_total_black_actions")
+    total_black_actions=$${total_black_actions:-0}
+      
+    ref_black_reachable_num=$$(printf '%s\n' "$$out" | grep '^black reachable num = ' | tail -n 1 | awk '{print $$NF}')
+    black_reachable_num=$$(bc <<< "$$black_reachable_num + $$ref_black_reachable_num")
+    black_reachable_num=$${black_reachable_num:-0}
+
+    # 後手合法手数関係
+    ref_max_white_actions=$$(printf '%s\n' "$$out" | grep '^max white actions = ' | tail -n 1 | awk '{print $$NF}')
+    if (( ref_max_white_actions > max_white_actions )); then
+      max_white_actions=$$ref_max_white_actions
+    fi
+    max_white_actions=$${max_white_actions:-0}
+      
+    ref_total_white_actions=$$(printf '%s\n' "$$out" | grep '^total white actions = ' | tail -n 1 | awk '{print $$NF}')
+    total_white_actions=$$(bc <<< "$$total_white_actions + $$ref_total_white_actions")
+    total_white_actions=$${total_white_actions:-0}
+      
+    ref_white_reachable_num=$$(printf '%s\n' "$$out" | grep '^white reachable num = ' | tail -n 1 | awk '{print $$NF}')
+    white_reachable_num=$$(bc <<< "$$white_reachable_num + $$ref_white_reachable_num")
+    white_reachable_num=$${white_reachable_num:-0}
+
+    # 総合合法手数関係
+    ref_max_actions=$$(printf '%s\n' "$$out" | grep '^max actions = ' | tail -n 1 | awk '{print $$NF}')
+    if (( ref_max_actions > max_actions )); then
+      max_actions=$$ref_max_actions
+    fi
+    max_actions=$${max_actions:-0}
+      
+    ref_total_actions=$$(printf '%s\n' "$$out" | grep '^total actions = ' | tail -n 1 | awk '{print $$NF}')
+    total_actions=$$(bc <<< "$$total_actions + $$ref_total_actions")
+    total_actions=$${total_actions:-0}
+      
+    ref_reachable_num=$$(printf '%s\n' "$$out" | grep '^reachable num = ' | tail -n 1 | awk '{print $$NF}')
+    reachable_num=$$(bc <<< "$$reachable_num + $$ref_reachable_num")
+    reachable_num=$${reachable_num:-0}
+  done
+done
+
+ave_black_actions=$$(bc <<< "scale=10; $$total_black_actions / $$black_reachable_num")
+ave_white_actions=$$(bc <<< "scale=10; $$total_white_actions / $$white_reachable_num")
+ave_actions=$$(bc <<< "scale=10; $$total_actions / $$reachable_num")
+echo "  合法手数解析結果"
+echo "    先手最大合法手数:$$max_black_actions"
+echo "    先手平均合法手数:$$ave_black_actions"
+echo "    後手最大合法手数:$$max_white_actions"
+echo "    後手平均合法手数:$$ave_white_actions"
+echo "    全体最大合法手数:$$max_actions"
+echo "    全体平均合法手数:$$ave_actions"
+
+endef
+
+define REACHABLE_BLACKWIN_SCRIPT
+cd "$$RESULT_DIR" || exit 1
+mkdir -p logs
+
+HALF=$$(( MAXL / 2 ))
+
+nwin=0
+nlose=0
+nunknown=0
+
+for (( l=0; l<=MAXL; l++ )); do
+  for (( b=0; b<=HALF; b++ )); do
+    w=$$(( MAXL - l - b ))
+    if (( w < 0 || w > HALF )); then continue; fi
+    RF="quoridor_reachable_N$${N}L$${l}B$${b}W$${w}.bin"
+    GF="quoridor_gamevalue_N$${N}L$${l}B$${b}W$${w}.bin"
+    LOG="logs/reachable_blackwin_L$${l}B$${b}W$${w}.log"
+    : > "$$LOG"
+    echo "[reachable blackwin] N=$$N L=$$l B=$$b W=$$w"
+    
+    out=$$("$$EXE" "$$N" "$$l" "$$b" "$$w" "$$RF" "$$GF") || { echo "ERROR: 先手到達可能勝敗ラベル解析の実行に失敗 (L=$$l B=$$b W=$$w)"; exit 1; }
+    printf '%s\n' "$$out" >> "$$LOG"
+      
+    ref_nwin=$$(printf '%s\n' "$$out" | grep '^black reachable nwin = ' | tail -n 1 | awk '{print $$NF}')
+    nwin=$$(bc <<< "$$nwin + $$ref_nwin")
+    nwin=$${nwin:-0}
+    
+    ref_nlose=$$(printf '%s\n' "$$out" | grep '^black reachable nlose = ' | tail -n 1 | awk '{print $$NF}')
+    nlose=$$(bc <<< "$$nlose + $$ref_nlose")
+    nlose=$${nlose:-0}
+    
+    ref_nunknown=$$(printf '%s\n' "$$out" | grep '^black reachable nunknown = ' | tail -n 1 | awk '{print $$NF}')
+    nunknown=$$(bc <<< "$$nunknown + $$ref_nunknown")
+    nunknown=$${nunknown:-0}
+  done
+done
+
+echo "  先手到達可能勝敗ラベル解析結果"
+echo "    先手勝ち:$$nwin"
+echo "    先手負け:$$nlose"
+echo "    勝敗不明:$$nunknown"
+
+endef
+
+define ZUGZWANG_SCRIPT
+cd "$$RESULT_DIR" || exit 1
+mkdir -p logs
+
+HALF=$$(( MAXL / 2 ))
+
+n_zz_dtow=0
+n_zz_ltod=0
+n_zz_ltow=0
+
+for (( l=0; l<=MAXL; l++ )); do
+  for (( b=0; b<=HALF; b++ )); do
+    w=$$(( MAXL - l - b ))
+    if (( w < 0 || w > HALF )); then continue; fi
+    RF="quoridor_reachable_N$${N}L$${l}B$${b}W$${w}.bin"
+    GF="quoridor_gamevalue_N$${N}L$${l}B$${b}W$${w}.bin"
+    FGF="quoridor_gamevalue_N$${N}L$${l}B$${w}W$${b}.bin"
+    LOG="logs/zugzwang_L$${l}B$${b}W$${w}.log"
+    : > "$$LOG"
+    echo "[zugzwang] N=$$N L=$$l B=$$b W=$$w"
+    
+    out=$$("$$EXE" "$$N" "$$l" "$$b" "$$w" "$$RF" "$$GF" "$$FGF") || { echo "ERROR: ツークツワンク解析の実行に失敗 (L=$$l B=$$b W=$$w)"; exit 1; }
+    printf '%s\n' "$$out" >> "$$LOG"
+      
+    ref_n_zz_dtow=$$(printf '%s\n' "$$out" | grep '^zugzwang draw to win = ' | tail -n 1 | awk '{print $$NF}')
+    n_zz_dtow=$$(bc <<< "$$n_zz_dtow + $$ref_n_zz_dtow")
+    n_zz_dtow=$${n_zz_dtow:-0}
+
+    ref_n_zz_ltod=$$(printf '%s\n' "$$out" | grep '^zugzwang lose to draw = ' | tail -n 1 | awk '{print $$NF}')
+    n_zz_ltod=$$(bc <<< "$$n_zz_ltod + $$ref_n_zz_ltod")
+    n_zz_ltod=$${n_zz_ltod:-0}
+    
+    ref_n_zz_ltow=$$(printf '%s\n' "$$out" | grep '^zugzwang lose to win = ' | tail -n 1 | awk '{print $$NF}')
+    n_zz_ltow=$$(bc <<< "$$n_zz_ltow + $$ref_n_zz_ltow")
+    n_zz_ltow=$${n_zz_ltow:-0}
+  done
+done
+
+echo "  ツークツワンク解析結果"
+echo "    不明から勝ち:$$n_zz_dtow"
+echo "    負けから不明:$$n_zz_ltod"
+echo "    負けから勝ち:$$n_zz_ltow"
+
+endef
+
 export RETRO_SCRIPT
 export REACH_SCRIPT
+export LEGAL_ACTIONS_SCRIPT
+export REACHABLE_BLACKWIN_SCRIPT
+export ZUGZWANG_SCRIPT
 
 $(RESULT_DIR):
 	@mkdir -p $@
@@ -397,8 +615,20 @@ run-reachable: check-L $(REACH_EXE) | $(RESULT_DIR)
 	@N=$(N) MAXL=$(L) EXE=$(abspath $(REACH_EXE)) RESULT_DIR=$(RESULT_DIR) INITIALIZE=$(INITIALIZE) \
 	 REACH_ITER_MAX=$(REACH_ITER_MAX) bash -c "$$REACH_SCRIPT"
 
+run-legal-actions: run-reachable check-L $(LEGAL_ACTIONS_EXE) | $(RESULT_DIR)
+	@N=$(N) MAXL=$(L) EXE=$(abspath $(LEGAL_ACTIONS_EXE)) RESULT_DIR=$(RESULT_DIR) \
+	 bash -c "$$LEGAL_ACTIONS_SCRIPT"
+
+run-reachable-blackwin: run-reachable run-retrograde check-L $(REACHABLE_BLACKWIN_EXE) | $(RESULT_DIR)
+	@N=$(N) MAXL=$(L) EXE=$(abspath $(REACHABLE_BLACKWIN_EXE)) RESULT_DIR=$(RESULT_DIR) \
+	 bash -c "$$REACHABLE_BLACKWIN_SCRIPT"
+
+run-zugzwang: run-reachable run-retrograde check-L $(ZUGZWANG_EXE) | $(RESULT_DIR)
+	@N=$(N) MAXL=$(L) EXE=$(abspath $(ZUGZWANG_EXE)) RESULT_DIR=$(RESULT_DIR) \
+	 bash -c "$$ZUGZWANG_SCRIPT"
+
 # 到達可能・後退解析は別々のファイルに書くので make -j2 run で並列実行してもよい。
-run: run-reachable run-retrograde
+run: run-reachable run-retrograde run-legal-actions run-reachable-blackwin run-zugzwang
 	@echo "=== N=$(N) L=$(L) の全解析が完了しました。結果: $(RESULT_DIR)/ ==="
 
 # ----------------------------- 表参照 ---------------------------------------
@@ -486,7 +716,7 @@ verify: check-L
 # ----------------------------- 後始末 ---------------------------------------
 # オブジェクトファイルと実行ファイルだけを削除する。bin/ の結果データ(参照データ)や results/ は消さない。
 clean:
-	rm -f $(COMMON_OBJS) $(RETRO_OBJ) $(REACH_OBJ) $(LOOKUP_OBJ) $(EXES) $(BUILD_STAMP)
+	rm -f $(COMMON_OBJS) $(RETRO_OBJ) $(REACH_OBJ) $(LEGAL_ACTIONS_OBJ) $(REACHABLE_BLACKWIN_OBJ) $(ZUGZWANG_OBJ) $(LOOKUP_OBJ) $(EXES) $(BUILD_STAMP)
 
 # make run / verify が作った results/ も削除する。
 delete-result:
@@ -494,15 +724,15 @@ delete-result:
 
 help:
 	@echo "使い方:"
-	@echo "  make [build]          retrograde / reachable / lookup の3つをビルドして bin/ に出力"
-	@echo "  make retrograde|reachable|lookup   個別にビルド"
+	@echo "  make [build]          retrograde / reachable / lookup / legal-actions / reachable-pos-blackwin-label / zugzwang をビルドして bin/ に出力"
+	@echo "  make retrograde|reachable|lookup|legal-actions|reachable-pos-blackwin-label|zugzwang 個別にビルド"
 	@echo "  make run N=3 L=4      N, L における 到達可能配置解析 + 後退解析 を全(L,B,W)組合せ実行"
 	@echo "                        (結果は $(RESULT_ROOT)/N<N>L<L>/ に出力)"
-	@echo "  make run-reachable / run-retrograde   片方だけ実行"
+	@echo "  make run-reachable / run-retrograde / run-legal-actions / run-reachable-pos-blackwin-label / run-zugzwang 個別実行"
 	@echo "  make lookup-demo      初期配置を表参照プログラムで引く (FEN=... で任意の配置も可)"
-	@echo "  make verify           N=3系を最初から全解析し、bin/ の既存データと比較
+	@echo "  make verify           N=3系を最初から全解析し、bin/ の既存データと比較"
 	@echo "  make compare          既にある結果を bin/ の既存データと比較するだけ"
 	@echo "  make clean            オブジェクトファイル・実行ファイルを削除 (bin/ の結果データは残る)"
 	@echo "  make delete-result        results/ を削除"
 	@echo "  make patch-header     zdd_quoridor_board_only.hpp の N を Makefile から切り替えられる形に書き換える"
-	@echo "主な変数: N L REF_MAX_N REF_MAX_L STOP_RULE(bound/or) ITER_MAX INITIALIZE(1/0) OPT CXX"
+	@echo "主な変数: N L REF_MAX_N REF_MAX_L ITER_MAX INITIALIZE(1/0) OPT CXX"

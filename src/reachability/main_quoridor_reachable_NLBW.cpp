@@ -432,16 +432,16 @@ public:
     void set_id(unsigned long long int id) noexcept { m_id = id;}
     void set_parent(unsigned int parent) noexcept { m_parent = parent; }
     void set_black_parent_array_id(int num_child, unsigned long long int array_id[]) noexcept {
-        if((m_parent & 1) == 0){return;} //親が先手じゃないなら使わない
         m_black_parent_num_child = num_child;
+        if((m_parent & 1) == 0){m_black_parent_num_child = 0; return;} //親が先手じゃないなら使わない
         if(num_child <= 0) return;
         for(int childid = 0; childid < m_black_parent_num_child; childid++) {
             m_black_parent_array_id[childid] = array_id[childid];
         }
     }
     void set_white_parent_array_id(int num_child, unsigned long long int array_id[]) noexcept {
-        if((m_parent & 2) == 0){return;} //親が後手じゃないなら使わない
         m_white_parent_num_child = num_child;
+        if((m_parent & 2) == 0){m_white_parent_num_child = 0; return;} //親が後手じゃないなら使わない
         if(num_child <= 0) return;
         for(int childid = 0; childid < m_white_parent_num_child; childid++) {
             m_white_parent_array_id[childid] = array_id[childid];
@@ -782,11 +782,9 @@ static void boss(const string &read_file_name_LBW, const string &read_file_name_
                 deq_output.clear();
                 lck.unlock();
                 count_output += deq_tmp.size();
-                bool new_child[one_leaves_num_LBW + one_leaves_num_Lp1Bm1W + one_leaves_num_Lp1BWm1]; //この週で値が新しく着いたならtrueにする。
-                fill(new_child, new_child + one_leaves_num_LBW + one_leaves_num_Lp1Bm1W + one_leaves_num_Lp1BWm1, false); //新しいかどうかの配列初期化
                 for (unsigned int workid = 0; workid < deq_tmp.size(); workid++) {
                     unsigned long long int id = deq_tmp[workid]->get_id();
-                    unsigned int parent_value = table.get(id);
+                    unsigned int parent_value = deq_tmp[workid]->get_parent(); //workerが子配置を列挙した時点の親の値。table.get(id)だと途中で値が変わり、未設定の子配置配列を読んでしまう。
                     if(parent_value == v_unknown){continue;} // worker担当配置は不明なら何もしない。
                     
                     //デバッグ出力
@@ -847,7 +845,6 @@ static void boss(const string &read_file_name_LBW, const string &read_file_name_
                                     table.set_update(array[childid], v_white);
                                     nwhite++;
                                     nunknown--;
-                                    new_child[array[childid]] = true;
 
                                     //cout << "child is unknown to white. " << "chilld id = " << array[childid] << endl;
                                     //debug_posi.make_posi(array[childid], zdd);
@@ -855,10 +852,9 @@ static void boss(const string &read_file_name_LBW, const string &read_file_name_
 
                                 }
                                 else if(child_value == v_black){
+                                    if(table.is_changed(array[childid])){nblack--;}
                                     table.set_update(array[childid], v_both);
                                     nboth++;
-                                    if(new_child[array[childid]] == false){new_child[array[childid]] = true;}
-                                    else{nblack--;}
                                     
                                     //cout << "child is black to both. " << "chilld id = " << array[childid] << endl;
                                     //debug_posi.make_posi(array[childid], zdd);
@@ -892,17 +888,15 @@ static void boss(const string &read_file_name_LBW, const string &read_file_name_
                                     table.set_update(array[childid], v_black);
                                     nblack++;
                                     nunknown--;
-                                    new_child[array[childid]] = true;
                                     
                                     //cout << "child is unknown to black. " << "chilld id = " << array[childid] << endl;
                                     //debug_posi.make_posi(array[childid], zdd);
                                     //debug_posi.View_Position();
                                 }
                                 else if(child_value == v_white){
+                                    if(table.is_changed(array[childid])){nwhite--;}
                                     table.set_update(array[childid], v_both);
                                     nboth++;
-                                    if(new_child[array[childid]] == false){new_child[array[childid]] = true;}
-                                    else{nwhite--;}
                                     
                                     //cout << "child is white to both. " << "chilld id = " << array[childid] << endl;
                                     //debug_posi.make_posi(array[childid], zdd);
